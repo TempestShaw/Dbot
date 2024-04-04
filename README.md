@@ -59,3 +59,15 @@ This document outlines the design and functionality of a Discord bot focused on 
 ## Conclusion
 
 This Discord bot is designed to be an essential tool for traders, combining active and quant investing features to provide a comprehensive trading platform. By prioritizing user engagement and continuous improvement, the bot aims to support informed trading decisions within the Discord community. Compliance with financial regulations and data protection laws will be upheld in all functionalities.
+
+## Notes
+
+### 0.0.1
+As calling api is expensive, I would like to develop the stock choosing function first. It helps us to choose the most valuable stock at that day.
+For the same reason, I will focus on daily candle instead of shorter period. Or maybe I can select some stock today, and look at their intraday performance the next day.
+
+**TO-DO list**
+ - select stocks by technical analysis
+   - 1. find the most valuable industry(s)
+   - 2. looking for out-performed-industry stock(s) by technical analysis
+   - 3. Monitoring their performance tmr
