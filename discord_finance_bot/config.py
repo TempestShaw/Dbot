@@ -1,6 +1,10 @@
 import os
+from dotenv import load_dotenv
 from dataclasses import dataclass
 from typing import List, Optional
+
+# Load environment variables from a .env file if present
+load_dotenv()
 
 
 # Configuration container for bot runtime settings
