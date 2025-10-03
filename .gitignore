@@ -1,3 +1,46 @@
+# IDE / Editor
 .idea
+.vscode/
+
+# Environment and secrets
 .env
-.venv
+.env.*
+env/
+venv/
+.venv/
+discord_finance_bot/.env
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+.ipynb_checkpoints/
+
+# Packaging / build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# Coverage / reports
+.coverage
+.coverage.*
+htmlcov/
+
+# Test / tooling
+.tox/
+.pyre/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+
+# Python tools
+.python-version
+pip-wheel-metadata/
