@@ -1,6 +1,7 @@
-from services.finance_service import FinanceService
-from services.stock_service import StockService
-from services.sector_service import SectorService
+from services.alphavantage_service import AlphaVantageService
+from services.web_crawler_service import WebCrawlerService
+from zoneinfo import ZoneInfo
+import datetime as dt
 
 
 class MessageService:
@@ -11,26 +12,65 @@ class MessageService:
     """
 
     def __init__(self, config):
-        self.finance_service = FinanceService(config)
-        self.stock_service = StockService(config)
-        self.sector_service = SectorService(config)
+        self.alpha_service = AlphaVantageService(config)
+        self.web_crawler_service = WebCrawlerService(config)
+        self.config = config
 
     def generate_daily_summary_json(self):
         """Return standardized JSON payload consumable by n8n workflows."""
-        macro = self.finance_service.get_macro_data()
-        stocks = self.stock_service.get_selected_stocks()
-        sectors = self.sector_service.get_top_sectors()
+        # add top sector details via crawler service
+        top_sectors_details = self.web_crawler_service.get_top_sectors_details()
+
+        # Compute today/tomorrow/day-after in configured timezone
+        today = dt.datetime.now(ZoneInfo(self.config.timezone)).date()
+        dates = [today, today + dt.timedelta(days=1), today + dt.timedelta(days=2)]
+
+        earnings = self.alpha_service.get_week_earnings_for_dates(dates)
+        ipos = self.alpha_service.get_week_ipos_for_dates(dates)
+
         return {
-            "macro": macro,
-            "stocks": stocks,
-            "sectors": sectors,
+            "top_sectors_details": top_sectors_details,
+            "earnings": earnings,
+            "ipos": ipos,
+            "dates": [d.isoformat() for d in dates],
         }
 
     def generate_daily_summary_text(self) -> str:
         """Return human-readable markdown text for Discord messages."""
         payload = self.generate_daily_summary_json()
-        return (
-            f"📊 Macro Data:\n{payload['macro']}\n\n"
-            f"📈 Stocks:\n{payload['stocks']}\n\n"
-            f"🚀 Sectors:\n{payload['sectors']}"
+
+        # Compose additional tables for earnings and IPOs
+        from utils.data_parser import to_markdown_table
+        earnings_tbl = to_markdown_table(
+            payload.get("earnings", []),
+            ["symbol", "name", "reportDate", "estimateEPS", "estimateCurrency"],
         )
+        ipos_tbl = to_markdown_table(
+            payload.get("ipos", []),
+            ["symbol", "name", "ipoDate", "priceRange", "currency"],
+        )
+
+        dates_str = ", ".join(payload.get("dates", []))
+        # Build a clean markdown table for top sector details
+        sectors_details = payload.get("top_sectors_details") or []
+        sectors_details_tbl = to_markdown_table(
+            sectors_details,
+            [
+                "name",
+                "change_pct",
+                "leader_stock",
+                "leader_change_pct",
+                "up_count",
+                "unchanged_count",
+                "down_count",
+            ],
+        )
+
+        return (
+            f"🔥 Top Sector Details\n{sectors_details_tbl}\n\n"
+            f"📅 Earnings & IPOs for {dates_str}\n\n"
+            f"🧾 Earnings\n{earnings_tbl}\n\n"
+            f"🆕 IPOs\n{ipos_tbl}"
+        )
+
+
