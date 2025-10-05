@@ -4,3 +4,4 @@ yfinance
 requests>=2.32.0
 beautifulsoup4>=4.12.3
 python-dotenv>=1.0.1
+playwright>=1.47.0
