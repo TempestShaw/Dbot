@@ -41,11 +41,11 @@ class BotController(discord.Client):
 
         content = message.content.strip()
         if content.startswith("!today"):
-            text = self.message_service.generate_daily_summary_text()
+            text = await self.message_service.generate_daily_summary_text_async()
             await message.channel.send(text)
 
         elif content.startswith("!today_json"):
-            payload = self.message_service.generate_daily_summary_json()
+            payload = await self.message_service.generate_daily_summary_json_async()
             await message.channel.send(
                 f"```json\n{json.dumps(payload, ensure_ascii=False, indent=2)}\n```"
             )

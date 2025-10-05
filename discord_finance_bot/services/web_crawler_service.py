@@ -18,14 +18,16 @@ class WebCrawlerService:
     def get_top_sectors_details(self, url: Optional[str] = "https://www.moomoo.com/hans/quote/us/concepts", limit: int = 5) -> List[Dict]:
         return self.repo.fetch_top_sectors_details(url=url, limit=limit)
 
+    async def get_top_sectors_details_async(self, url: Optional[str] = "https://www.moomoo.com/hans/quote/us/concepts", limit: int = 10) -> List[Dict]:
+        return await self.repo.fetch_top_sectors_details_async(url=url, limit=limit)
+
 
 
 if __name__ == "__main__":
     # Minimal CLI to verify top sector details via sync service
     import json
-    from discord_finance_bot.config import load_config  # type: ignore
+    from discord_finance_bot.config import load_config
 
     cfg = load_config()
     svc = WebCrawlerService(cfg)
     details = svc.get_top_sectors_details()
-    print(json.dumps({"top_sectors_details": details}, ensure_ascii=False, indent=2))
