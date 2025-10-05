@@ -24,6 +24,8 @@ class SchedulerController:
         # Daily summary push at 09:00 local time
         self.scheduler.add_job(self.daily_update, "cron", hour=9, minute=0)
         self.scheduler.start()
+        json = self.bot.message_service.generate_daily_summary_json()
+        print(json)
 
     async def _send_to_channel(self, text: str) -> None:
         """Send text to the configured channel asynchronously."""
