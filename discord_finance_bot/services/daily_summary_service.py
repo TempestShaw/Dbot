@@ -11,8 +11,10 @@ The scheduler simply calls this service without knowing the implementation detai
 
 import asyncio
 import discord
+import io
 from typing import Optional
 from utils.logger import get_logger
+from services.chart_service import ChartService
 
 
 class DailySummaryService:
@@ -22,6 +24,7 @@ class DailySummaryService:
         self.bot = bot
         self.config = config
         self.logger = get_logger(__name__)
+        self.chart_service = ChartService()
 
     async def send_daily_summary(self) -> None:
         """Generate and send daily market summary to Discord."""
@@ -34,8 +37,19 @@ class DailySummaryService:
             # Build Discord embed
             embed = self._build_professional_embed(summary_data)
 
-            # Send to Discord
-            await self._send_embed_to_channel(embed)
+            # Generate and attach sector performance chart
+            if summary_data.get("top_sectors_details"):
+                self.logger.info("Generating sector performance chart...")
+                chart_image = self.chart_service.generate_sector_performance_chart(
+                    summary_data["top_sectors_details"]
+                )
+                embed.set_image(url="attachment://sector_chart.png")
+
+                # Send to Discord with chart attachment
+                await self._send_embed_to_channel_with_chart(embed, chart_image)
+            else:
+                # Send without chart if no sector data
+                await self._send_embed_to_channel(embed)
 
             self.logger.info("Daily market summary sent successfully")
 
@@ -66,6 +80,31 @@ class DailySummaryService:
             self.logger.info(f"Embed sent to channel {channel_id}")
         except Exception as e:
             self.logger.error(f"Failed to send embed to channel {channel_id}: {e}")
+            raise
+
+    async def _send_embed_to_channel_with_chart(self, embed: discord.Embed, chart_image: bytes) -> None:
+        """Send embed with chart attachment to the configured Discord channel."""
+        channel_id = self.config.channel_id
+
+        if not channel_id:
+            self.logger.warning("DISCORD_CHANNEL_ID not configured; skipping daily summary send.")
+            return
+
+        channel = self.bot.get_channel(channel_id)
+
+        if not channel:
+            self.logger.warning(f"Channel {channel_id} not found; ensure bot has access.")
+            return
+
+        try:
+            # Create file from bytes
+            chart_file = discord.File(io.BytesIO(chart_image), filename="sector_chart.png")
+
+            # Send embed with chart attachment
+            await channel.send(embed=embed, files=[chart_file])
+            self.logger.info(f"Embed with chart sent to channel {channel_id}")
+        except Exception as e:
+            self.logger.error(f"Failed to send embed with chart to channel {channel_id}: {e}")
             raise
 
     def _build_professional_embed(self, data: dict) -> discord.Embed:

@@ -2,7 +2,7 @@ import asyncio
 from config import load_config
 from controllers.bot_controller import BotController
 # Use clean scheduler controller with separated concerns
-from controllers.clean_scheduler_controller import CleanSchedulerController
+from controllers.scheduler_controller import SchedulerController
 from utils.logger import get_logger
 
 
@@ -14,12 +14,12 @@ def main():
     """Main entry to start Discord Bot and scheduler."""
     config = load_config()
     bot = BotController(config)
-    scheduler = CleanSchedulerController(bot, config)
+    scheduler = SchedulerController(bot, config)
 
     # Attach scheduler to bot and start when bot becomes ready
     bot.attach_scheduler(scheduler)
 
-    logger.info("Starting Discord bot with clean scheduler architecture...")
+    logger.info("Starting Discord bot with clean scheduler architecture and chart generation...")
     bot.run(config.discord_token)
 
 
