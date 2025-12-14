@@ -61,7 +61,7 @@ class WebCrawlerRepo:
                 if first_page_item:
                     await first_page_item.click()
 
-                await page.wait_for_timeout(1000)  # 等待API回传
+                await page.wait_for_timeout(1000)  # Wait for API response
 
                 await context.close()
                 await browser.close()
