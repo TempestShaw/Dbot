@@ -9,12 +9,10 @@ async def fetch_plate_list():
         await page.goto("https://www.moomoo.com/quote/us/concepts")
         await page.wait_for_selector(".base-pagination .item")
         
-        # 點擊第一頁
         first_page_item = await page.query_selector(".base-pagination .item:nth-child(2)")
         if first_page_item:
             await first_page_item.click()
         
-        # 捕獲 API 響應
         async def handle_response(response):
             if "get-plate-list" in response.url:
                 try:
