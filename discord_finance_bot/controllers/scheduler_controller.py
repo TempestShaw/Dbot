@@ -69,16 +69,6 @@ class SchedulerController:
             )
             embed.add_field(name="🎯 Polymarket Earnings Predictions", value=poly_text, inline=False)
 
-        # --- Earnings section ---
-        earnings = data.get("earnings", [])
-        if earnings:
-            top_earnings = earnings[:5]
-            earnings_text = "\n".join(
-                [f"**{e['symbol']}** – {e['name']} ({e['reportDate']})"
-                 for e in top_earnings]
-            )
-            embed.add_field(name="🧾 Upcoming Earnings", value=earnings_text, inline=False)
-
         # --- IPO section ---
         ipos = data.get("ipos", [])
         if ipos:

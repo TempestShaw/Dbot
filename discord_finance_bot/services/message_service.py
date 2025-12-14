@@ -44,6 +44,7 @@ class MessageService:
         return {
             "top_sectors_details": sectors_mapped,
             "earnings": earnings,
+            "polymarket_earnings": [],  # Sync version doesn't include Polymarket data (use async version)
             "ipos": ipos,
             "dates": [d.isoformat() for d in dates],
         }

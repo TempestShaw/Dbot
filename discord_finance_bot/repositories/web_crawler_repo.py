@@ -83,6 +83,18 @@ class WebCrawlerRepo:
 
         return await self._scrape_top_sectors_details_async(url=target_url, limit=limit)
 
+    def fetch_top_sectors_names(self, url: Optional[str] = None, limit: int = 5) -> List[str]:
+        """Sync wrapper to get top sector names (returns empty list for now)."""
+        # TODO: Implement sync version or remove this method
+        self.logger.warning("fetch_top_sectors_names is not implemented for sync version")
+        return []
+
+    def fetch_top_sectors_details(self, url: Optional[str] = "https://www.moomoo.com/quote/us/concepts", limit: int = 5) -> List[dict]:
+        """Sync wrapper to get top sector details (returns empty list for now)."""
+        # TODO: Implement sync version or remove this method
+        self.logger.warning("fetch_top_sectors_details is not implemented for sync version")
+        return []
+
 
 # Example usage
 if __name__ == "__main__":
