@@ -74,8 +74,16 @@ class ChartService:
         # Add labels - MUCH larger fonts
         max_change = max(abs(max(changes)), abs(min(changes)))
         for i, (bar, change, leader, up, down) in enumerate(zip(bars, changes, leaders, up_counts, down_counts)):
-            # Percentage change (large, bold)
-            x_pos = bar.get_width() + 0.08 if bar.get_width() >= 0 else bar.get_width() - 0.08
+            # Up/Down counts (LEFT of bar, between y-axis and bar)
+            # Increased padding: moved further right to avoid y-axis label overlap
+            x_pos_counts = -0.01  # Was -0.3, now -0.1 (closer to bar, further from y-axis)
+            ax.text(x_pos_counts, bar.get_y() + bar.get_height()/2,
+                    f'▲{up} / ▼{down}',
+                    ha='center', va='center', color='white', fontweight='bold',
+                    fontsize=20, bbox=dict(boxstyle='round,pad=0.4', facecolor='#1a1a1a', alpha=0.9))
+
+            # Percentage change (RIGHT of bar)
+            x_pos = bar.get_width() if bar.get_width() >= 0 else bar.get_width() - 0.08
             ha = 'left' if bar.get_width() >= 0 else 'right'
             ax.text(x_pos, bar.get_y() + bar.get_height()/2 + 0.2,
                     f'{change:+.2f}%',
@@ -85,12 +93,6 @@ class ChartService:
             ax.text(x_pos, bar.get_y() + bar.get_height()/2 - 0.2,
                     f'{leader}',
                     ha=ha, va='center', color='#99aab5', fontweight='bold', fontsize=18)
-
-            # Up/Down counts (in separate column)
-            ax.text(max_change + 0.4, bar.get_y() + bar.get_height()/2,
-                    f'▲{up} / ▼{down}',
-                    ha='left', va='center', color='white', fontweight='bold',
-                    fontsize=20, bbox=dict(boxstyle='round,pad=0.4', facecolor='#1a1a1a', alpha=0.9))
 
         # Style axes
         ax.tick_params(colors='white', labelsize=18)
