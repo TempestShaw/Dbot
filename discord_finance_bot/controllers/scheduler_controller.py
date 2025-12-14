@@ -60,6 +60,15 @@ class SchedulerController:
             color=discord.Color.blue()
         )
 
+        # --- Polymarket Earnings section ---
+        polymarket_earnings = data.get("polymarket_earnings", [])
+        if polymarket_earnings:
+            poly_text = "\n".join(
+                [f"**{e['ticker']}** – {e['eps_forecast']} | {e['probability']} ({e['time']})"
+                 for e in polymarket_earnings[:10]]
+            )
+            embed.add_field(name="🎯 Polymarket Earnings Predictions", value=poly_text, inline=False)
+
         # --- Earnings section ---
         earnings = data.get("earnings", [])
         if earnings:
@@ -83,14 +92,38 @@ class SchedulerController:
         sectors = data.get("top_sectors_details", [])
         if sectors:
             table = "```text\n"
-            table += f"{'Sector':<10}{'Change':<8}{'Leader':<22}{'Leader %':<8}\n"
-            table += "-" * 50 + "\n"
-            for s in sectors[:8]:  # Limit to 8 rows to avoid overly long embed
-                name = (s['name'][:9] + '…') if len(s['name']) > 9 else s['name']
-                leader = (s['leader_stock'][:20] + '…') if len(s['leader_stock']) > 20 else s['leader_stock']
-                table += f"{name:<10}{s['change_pct']:<8}{leader:<22}{s['leader_change_pct']:<8}\n"
+            table += f"{'Sector':<18}{'Chg%':<8}{'Leader':<22}{'Ldr%':<8}{'Up/Dn':<8}\n"
+            table += "-" * 70 + "\n"
+
+            for s in sectors:  # 限制显示前8个行业
+                name = (s.get("plateName") or "N/A")[:17]
+                leader = (s.get("stockName") or "N/A")[:21]
+
+                change = s.get("changeRatio", "N/A")
+                leader_chg = s.get("stockChangeRatio", "N/A")
+
+                direction = "📈" if "+" in str(change) else "📉" if "-" in str(change) else "➖"
+
+                up = s.get("priceRiseCount") or 0
+                down = s.get("priceFallCount") or 0
+                same = s.get("priceSameCount") or 0
+
+                table += f"{direction}{name:<17}{change:<8}{leader:<22}{leader_chg:<8}{f'{up}/{down}':<8}\n"
+
             table += "```"
             embed.add_field(name="🏭 Top Sectors", value=table, inline=False)
+
+            # 附加信息（成交额、成交量）
+            top_sector = sectors[0]
+            embed.add_field(
+                name="💰 Market Highlights",
+                value=(
+                    f"**Top Sector:** {top_sector.get('plateName')}  \n"
+                    f"**Turnover:** {top_sector.get('tradeTurnover')}  \n"
+                    f"**Volume:** {top_sector.get('tradeVolumn')}"
+                ),
+                inline=False,
+            )
 
         embed.set_footer(text="Data source: your API provider")
         return embed
