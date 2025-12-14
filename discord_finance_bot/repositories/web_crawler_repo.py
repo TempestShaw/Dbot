@@ -1,7 +1,5 @@
 from typing import List, Optional
 import asyncio
-import requests
-from bs4 import BeautifulSoup
 from utils.logger import get_logger
 
 try:
@@ -9,109 +7,84 @@ try:
 except Exception:
     async_playwright = None  # Playwright not installed yet
 
-try:
-    from playwright.sync_api import sync_playwright  # type: ignore
-except Exception:
-    sync_playwright = None  # Playwright sync API not installed
-
 
 class WebCrawlerRepo:
-    """Simple web crawler repository to fetch headlines and sector info."""
+    """Fetch top sector info from Moomoo via API triggered by page navigation."""
 
     def __init__(self, config):
         self.config = config
         self.logger = get_logger(__name__)
-
-    async def _scrape_top_sectors_details_async(self, url: str = "https://www.moomoo.com/hans/quote/us/concepts", limit: int = 10) -> List[dict]:
-        """Use Playwright to scrape detailed top sectors.
-
-        Extracts per sector:
-          - name: `span.plate-name`
-          - change_pct: first `span.change.value`
-          - leader_stock: `object.stock-name a`
-          - leader_change_pct: last `span.change.value` (if present)
-          - up_count, unchanged_count, down_count: parsed from value elements.
-        """
+    async def _scrape_top_sectors_details_async(self, url: str = "https://www.moomoo.com/quote/us/concepts", limit: int = 10) -> List[dict]:
+        """Use Playwright to capture API responses from the live page."""
         if async_playwright is None:
-            self.logger.error("Playwright is not installed. Please `pip install playwright` and `python -m playwright install chromium`.")
+            self.logger.error(
+                "Playwright not installed. Run `pip install playwright` and `python -m playwright install chromium`."
+            )
             return []
+
+        collected_data: List[dict] = []
 
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
-                context = await browser.new_context()
+                context = await browser.new_context(
+                    locale="en-US",
+                    user_agent=(
+                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/127.0.0.0 Safari/537.36"
+                    ),
+                    extra_http_headers={
+                        "Accept": "application/json, text/plain, */*",
+                        "Accept-Language": "en-US,en;q=0.9",
+                        "Origin": "https://moomoo.com",
+                        "Referer": "https://moomoo.com/quote/us/concepts",
+                    },
+                )
                 page = await context.new_page()
-                await page.goto(url, wait_until="networkidle")
-                await page.wait_for_selector("div.content-main", timeout=10000)
 
-                items = await page.query_selector_all("div.content-main a.list-item")
-                out: List[dict] = []
-                for item in items[:limit]:
-                    name_el = await item.query_selector("span.plate-name")
-                    name = (await name_el.text_content()).strip() if name_el else ""
-
-                    change_nodes = await item.query_selector_all("span.change.value")
-                    change_texts: List[str] = []
-                    for cn in change_nodes:
-                        t = await cn.text_content()
-                        if t:
-                            change_texts.append(t.strip())
-                    sector_change = change_texts[0] if change_texts else ""
-                    leader_change = change_texts[-1] if len(change_texts) > 1 else ""
-
-                    val_nodes = await item.query_selector_all("span.value.ellipsis")
-                    val_texts: List[str] = []
-                    for vn in val_nodes:
-                        t = await vn.text_content()
-                        if t:
-                            val_texts.append(t.strip())
-                    same_el = await item.query_selector("span.same-count.value.ellipsis")
-                    same_text = (await same_el.text_content()).strip() if same_el else ""
-
-                    def _to_int(s: str) -> Optional[int]:
+                async def handle_response(response):
+                    if "get-plate-list" in response.url:
                         try:
-                            return int(s)
-                        except Exception:
-                            return None
+                            data = await response.json()
+                            real_list = data.get("data", {}).get("list", [])
+                            collected_data.extend(real_list)
+                        except Exception as e:
+                            self.logger.warning(f"Failed to parse JSON from response: {e}")
 
-                    up_count = _to_int(val_texts[0]) if val_texts else None
-                    down_count = _to_int(val_texts[-1]) if val_texts else None
-                    unchanged_count = _to_int(same_text) if same_text else None
+                page.on("response", lambda resp: asyncio.create_task(handle_response(resp)))
 
-                    leader_el = await item.query_selector("object.stock-name a")
-                    leader_name = (await leader_el.text_content()).strip() if leader_el else ""
+                await page.goto(url, wait_until="networkidle")
+                await page.wait_for_selector(".base-pagination .item")
 
-                    out.append(
-                        {
-                            "name": name,
-                            "change_pct": sector_change,
-                            "up_count": up_count,
-                            "unchanged_count": unchanged_count,
-                            "down_count": down_count,
-                            "leader_stock": leader_name,
-                            "leader_change_pct": leader_change,
-                        }
-                    )
+                first_page_item = await page.query_selector(".base-pagination .item:nth-child(2)")
+                if first_page_item:
+                    await first_page_item.click()
+
+                await page.wait_for_timeout(1000)  # 等待API回传
 
                 await context.close()
                 await browser.close()
-                return out
+
+            return collected_data[:limit]
         except Exception as exc:
             self.logger.exception(f"Failed to scrape sector details via Playwright: {exc}")
             return []
 
 
-    async def fetch_top_sectors_details_async(self, url: Optional[str] = "https://www.moomoo.com/hans/quote/us/concepts", limit: int = 10) -> List[dict]:
-        """Public async wrapper to get detailed top sector info using Playwright async API."""
+    async def fetch_top_sectors_details_async(
+        self, url: Optional[str] = "https://www.moomoo.com/quote/us/concepts", limit: int = 10
+    ) -> List[dict]:
+        """Public async wrapper to get top sector info."""
         target_url = url or getattr(self.config, "sectors_url", "")
         if not target_url:
-            self.logger.warning("No sectors URL provided. Pass `url` or set `config.sectors_url`.")
+            self.logger.warning("No sectors URL provided.")
             return []
 
         return await self._scrape_top_sectors_details_async(url=target_url, limit=limit)
 
 
-
+# Example usage
 if __name__ == "__main__":
     import argparse
     import json
@@ -120,20 +93,10 @@ if __name__ == "__main__":
     cfg = load_config()
     repo = WebCrawlerRepo(cfg)
 
-    parser = argparse.ArgumentParser(description="Test sector details scraping via Playwright")
-    parser.add_argument(
-        "--url",
-        type=str,
-        default="https://www.moomoo.com/hans/quote/us/concepts",
-        help="Target sectors page URL (default: moomoo US concepts Chinese page)",
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=5,
-        help="Number of top sectors to return",
-    )
+    parser = argparse.ArgumentParser(description="Test sector details scraping via API capture")
+    parser.add_argument("--url", type=str, default="https://www.moomoo.com/quote/us/concepts")
+    parser.add_argument("--limit", type=int, default=5)
     args = parser.parse_args()
 
-    details = repo.fetch_top_sectors_details(url=args.url, limit=args.limit)
+    details = asyncio.run(repo.fetch_top_sectors_details_async(url=args.url, limit=args.limit))
     print(json.dumps({"sectors": details}, ensure_ascii=False, indent=2))

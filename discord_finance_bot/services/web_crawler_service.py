@@ -1,5 +1,6 @@
 from typing import List, Optional, Dict
 from repositories.web_crawler_repo import WebCrawlerRepo
+from repositories.polymarket_repo import PolymarketRepo
 
 
 class WebCrawlerService:
@@ -10,6 +11,7 @@ class WebCrawlerService:
 
     def __init__(self, config):
         self.repo = WebCrawlerRepo(config)
+        self.polymarket_repo = PolymarketRepo(config)
         self.config = config
 
     def get_top_sectors_names(self, url: Optional[str] = None, limit: int = 5) -> List[str]:
@@ -20,6 +22,10 @@ class WebCrawlerService:
 
     async def get_top_sectors_details_async(self, url: Optional[str] = "https://www.moomoo.com/hans/quote/us/concepts", limit: int = 10) -> List[Dict]:
         return await self.repo.fetch_top_sectors_details_async(url=url, limit=limit)
+
+    async def get_polymarket_earnings_async(self) -> List[Dict]:
+        """Fetch earnings data from Polymarket."""
+        return await self.polymarket_repo.scrape_polymarket_earnings()
 
 
 
