@@ -4,7 +4,7 @@ Scheduler Controller - Only handles scheduling logic.
 This controller is responsible for:
 1. Managing the APScheduler
 2. Scheduling jobs
-3. Triggering the DailySummaryService
+3. Triggering the DailySummaryService to generate and send daily summaries
 
 It does NOT contain any daily summary generation logic.
 That is delegated to the DailySummaryService.
@@ -28,7 +28,7 @@ class SchedulerController:
             event_loop=asyncio.get_event_loop(),
             timezone=get_timezone(config.timezone)
         )
-        # Create the daily summary service
+        # Initialize the DailySummaryService for handling daily summaries
         self.daily_summary_service = DailySummaryService(bot, config)
 
     def start(self) -> None:
@@ -57,14 +57,14 @@ class SchedulerController:
         """
         Execute the daily summary job.
 
-        This is a simple wrapper that delegates to the DailySummaryService.
+        This delegates to the DailySummaryService to generate and send the daily summary.
         The scheduler doesn't need to know HOW the summary is generated,
-        only THAT it should be generated.
+        only THAT it should be generated and sent.
         """
         self.logger.info("Executing daily summary job...")
 
         try:
-            # Delegate the entire daily summary process to the service
+            # Delegate the entire daily summary process to the DailySummaryService
             # This keeps the scheduler clean and focused on timing
             await self.daily_summary_service.send_daily_summary()
             self.logger.info("Daily summary job delegated to DailySummaryService")

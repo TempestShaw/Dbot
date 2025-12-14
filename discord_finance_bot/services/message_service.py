@@ -1,18 +1,25 @@
 from services.alphavantage_service import AlphaVantageService
 from services.web_crawler_service import WebCrawlerService
+from services.market_data_aggregator import MarketDataAggregator
 from zoneinfo import ZoneInfo
 import datetime as dt
 
 class MessageService:
-    """Generate Discord messages and JSON payloads for n8n integration with new API fields."""
+    """Generate Discord messages and JSON payloads for n8n integration.
+
+    This service uses MarketDataAggregator to get all market data,
+    then formats it for Discord messages or JSON output.
+    """
 
     def __init__(self, config):
+        self.config = config
+        # Initialize data source services
         self.alpha_service = AlphaVantageService(config)
         self.web_crawler_service = WebCrawlerService(config)
-        self.config = config
+        self.market_data = MarketDataAggregator(config)
 
     def generate_daily_summary_json(self):
-        """Return standardized JSON payload consumable by n8n workflows (sync)."""
+        """Return standardized JSON payload (sync version)."""
         top_sectors_details = self.web_crawler_service.get_top_sectors_details()
 
         today = dt.datetime.now(ZoneInfo(self.config.timezone)).date()
@@ -21,7 +28,7 @@ class MessageService:
         earnings = self.alpha_service.get_week_earnings_for_dates(dates)
         ipos = self.alpha_service.get_week_ipos_for_dates(dates)
 
-        # map to new API fields
+        # Map to standardized format
         sectors_mapped = [
             {
                 "plateName": s.get("plateName") or s.get("name"),
@@ -44,22 +51,24 @@ class MessageService:
         return {
             "top_sectors_details": sectors_mapped,
             "earnings": earnings,
-            "polymarket_earnings": [],  # Sync version doesn't include Polymarket data (use async version)
+            "polymarket_earnings": [],  # Sync version doesn't include Polymarket
             "ipos": ipos,
             "dates": [d.isoformat() for d in dates],
         }
 
     async def generate_daily_summary_json_async(self):
-        """Async version returning standardized JSON payload for n8n/Discord flows."""
-        top_sectors_details = await self.web_crawler_service.get_top_sectors_details_async()
-        polymarket_earnings = await self.web_crawler_service.get_polymarket_earnings_async()
+        """Async version - use MarketDataAggregator for complete data."""
+        # Get all market data from aggregator
+        summary = await self.market_data.get_daily_market_summary()
 
         today = dt.datetime.now(ZoneInfo(self.config.timezone)).date()
         dates = [today, today + dt.timedelta(days=1), today + dt.timedelta(days=2)]
 
+        # Get additional data from Alpha Vantage
         earnings = self.alpha_service.get_week_earnings_for_dates(dates)
         ipos = self.alpha_service.get_week_ipos_for_dates(dates)
 
+        # Map sectors to standardized format
         sectors_mapped = [
             {
                 "plateName": s.get("plateName") or s.get("name"),
@@ -76,19 +85,20 @@ class MessageService:
                 "tradeVolumn": s.get("tradeVolumn"),
                 "backgroundImageUrl": s.get("backgroundImageUrl"),
             }
-            for s in top_sectors_details
+            for s in summary.get("top_sectors_details", [])
         ]
 
+        # Combine all data
         return {
             "top_sectors_details": sectors_mapped,
             "earnings": earnings,
-            "polymarket_earnings": polymarket_earnings,
+            "polymarket_earnings": summary.get("polymarket_earnings", []),
             "ipos": ipos,
             "dates": [d.isoformat() for d in dates],
         }
 
     def generate_daily_summary_text(self) -> str:
-        """Markdown text for Discord messages with new API fields."""
+        """Markdown text for Discord messages."""
         payload = self.generate_daily_summary_json()
 
         from utils.data_parser import to_markdown_table
@@ -124,7 +134,7 @@ class MessageService:
         )
 
     async def generate_daily_summary_text_async(self) -> str:
-        """Async Markdown text for Discord messages with new API fields."""
+        """Async Markdown text for Discord messages."""
         payload = await self.generate_daily_summary_json_async()
 
         from utils.data_parser import to_markdown_table
